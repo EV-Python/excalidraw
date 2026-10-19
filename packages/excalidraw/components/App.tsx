@@ -384,6 +384,7 @@ import { AppCursor } from "./App.cursor";
 import { AppDrawShape } from "./App.drawshape";
 import { AppDuplicate } from "./App.duplicate";
 import { AppFlowchart } from "./App.flowchart";
+import { FlowchartDragHandles } from "./FlowchartDragHandles";
 import { AppModifiers } from "./App.modifiers";
 import { AppPan } from "./App.pan";
 import { AppViewport, RIGHT_SIDEBAR_WIDTH } from "./App.viewport";
@@ -2492,6 +2493,29 @@ class App extends React.Component<AppProps, AppState> {
                             ]}
                           />
                           {this.isDefaultUIEnabled() && <CursorHint />}
+                          {this.isDefaultUIEnabled() &&
+                            this.isInteractionEnabled() &&
+                            this.state.activeTool.type === "selection" &&
+                            !this.state.viewModeEnabled &&
+                            !this.state.editingTextElement &&
+                            !this.state.newElement &&
+                            !this.state.resizingElement &&
+                            !this.state.isRotating &&
+                            !this.state.selectedElementsAreBeingDragged &&
+                            !this.state.openDialog &&
+                            !this.state.openMenu &&
+                            !this.state.contextMenu &&
+                            !this.state.editingGroupId &&
+                            selectedElements.length === 1 &&
+                            !firstSelectedElement.locked &&
+                            firstSelectedElement.angle === 0 &&
+                            (firstSelectedElement.type === "rectangle" ||
+                              firstSelectedElement.type === "diamond") && (
+                              <FlowchartDragHandles
+                                app={this}
+                                element={firstSelectedElement}
+                              />
+                            )}
                           {this.isDefaultUIEnabled() &&
                             this.isInteractionEnabled() &&
                             !this.state.viewModeEnabled && <FileDropOverlay />}
