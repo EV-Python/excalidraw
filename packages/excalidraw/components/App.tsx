@@ -384,6 +384,7 @@ import { AppCursor } from "./App.cursor";
 import { AppDrawShape } from "./App.drawshape";
 import { AppDuplicate } from "./App.duplicate";
 import { AppFlowchart } from "./App.flowchart";
+import { FlowchartToolbar } from "./FlowchartToolbar";
 import { AppModifiers } from "./App.modifiers";
 import { AppPan } from "./App.pan";
 import { AppViewport, RIGHT_SIDEBAR_WIDTH } from "./App.viewport";
@@ -2492,6 +2493,13 @@ class App extends React.Component<AppProps, AppState> {
                             ]}
                           />
                           {this.isDefaultUIEnabled() && <CursorHint />}
+                          {this.isDefaultUIEnabled() &&
+                            this.isInteractionEnabled() && (
+                              <FlowchartToolbar
+                                app={this}
+                                selectedElements={selectedElements}
+                              />
+                            )}
                           {this.isDefaultUIEnabled() &&
                             this.isInteractionEnabled() &&
                             !this.state.viewModeEnabled && <FileDropOverlay />}
