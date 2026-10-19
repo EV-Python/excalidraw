@@ -1,4 +1,10 @@
 {
+  "flowchart": {
+    "addAbove": "Add connected shape above",
+    "addRight": "Add connected shape to the right",
+    "addBelow": "Add connected shape below",
+    "addLeft": "Add connected shape to the left"
+  },
   "labels": {
     "signUp": "Sign up",
     "signIn": "Sign in",

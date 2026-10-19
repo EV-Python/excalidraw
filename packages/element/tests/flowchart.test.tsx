@@ -5,7 +5,9 @@ import { Excalidraw } from "@excalidraw/excalidraw";
 import { API } from "@excalidraw/excalidraw/tests/helpers/api";
 import { UI, Keyboard, Pointer } from "@excalidraw/excalidraw/tests/helpers/ui";
 import {
+  fireEvent,
   render,
+  screen,
   unmountComponent,
 } from "@excalidraw/excalidraw/tests/test-utils";
 
@@ -15,6 +17,138 @@ unmountComponent();
 
 const { h } = window;
 const mouse = new Pointer("mouse");
+
+describe("directional flowchart controls", () => {
+  const labels = [
+    "Add connected shape above",
+    "Add connected shape to the right",
+    "Add connected shape below",
+    "Add connected shape to the left",
+  ];
+
+  it.each(["rectangle", "diamond"] as const)(
+    "creates a same-style %s and bound arrow in each direction",
+    (type) => {
+      labels.forEach((label, index) => {
+        const node = API.createElement({
+          type,
+          x: 300,
+          y: 300,
+          width: 120,
+          height: 80,
+          backgroundColor: "#a5d8ff",
+          strokeColor: "#1971c2",
+          fillStyle: "solid",
+          strokeWidth: 2,
+        });
+        API.setElements([node]);
+        API.setSelectedElements([node]);
+        fireEvent.click(screen.getByRole("button", { name: label }));
+
+        expect(h.elements).toHaveLength(3);
+        const next = h.elements.find(
+          (element) => element.type === type && element.id !== node.id,
+        )!;
+        expect(next).toMatchObject({
+          type,
+          backgroundColor: node.backgroundColor,
+          strokeColor: node.strokeColor,
+          fillStyle: node.fillStyle,
+          strokeWidth: node.strokeWidth,
+        });
+        const arrow = h.elements.find((element) => element.type === "arrow")!;
+        expect(arrow).toMatchObject({
+          startBinding: { elementId: node.id },
+          endBinding: { elementId: next.id },
+        });
+        expect(h.state.selectedElementIds).toEqual({ [next.id]: true });
+        if (index === 0) {
+          expect(next.y + next.height).toBeLessThan(node.y);
+        } else if (index === 1) {
+          expect(next.x).toBeGreaterThan(node.x + node.width);
+        } else if (index === 2) {
+          expect(next.y).toBeGreaterThan(node.y + node.height);
+        } else {
+          expect(next.x + next.width).toBeLessThan(node.x);
+        }
+      });
+    },
+  );
+
+  it("creates a single undoable and redoable step", () => {
+    UI.clickTool("rectangle");
+    mouse.down(300, 300);
+    mouse.up(420, 380);
+    UI.clickTool("selection");
+    const node = h.elements[0] as NonDeletedExcalidrawElement;
+    API.setSelectedElements([node]);
+    fireEvent.click(screen.getByRole("button", { name: labels[1] }));
+    expect(h.elements).toHaveLength(3);
+    Keyboard.undo();
+    expect(h.elements.filter((element) => !element.isDeleted)).toHaveLength(1);
+    Keyboard.redo();
+    expect(h.elements.filter((element) => !element.isDeleted)).toHaveLength(3);
+  });
+
+  it("uses screen-sized offsets under zoom, pan, and editor offsets", () => {
+    const node = API.createElement({
+      type: "rectangle",
+      x: 200,
+      y: 100,
+      width: 120,
+      height: 80,
+    });
+    API.setElements([node]);
+    API.setSelectedElements([node]);
+    API.setAppState({
+      zoom: { value: 2 as typeof h.state.zoom.value },
+      scrollX: -100,
+      scrollY: 50,
+      offsetLeft: 40,
+      offsetTop: 60,
+    });
+    const right = screen.getByRole("button", { name: labels[1] });
+    expect(right.style.left).toBe("468px");
+    expect(right.style.top).toBe("380px");
+  });
+
+  it("keeps keyboard activation local and allows Enter to label the new node", () => {
+    const node = API.createElement({ type: "rectangle" });
+    API.setElements([node]);
+    API.setSelectedElements([node]);
+    const button = screen.getByRole("button", { name: labels[1] });
+    button.focus();
+    fireEvent.keyDown(button, { key: "Enter" });
+    expect(h.state.editingTextElement).toBeNull();
+    // Native button activation dispatches a click for Enter/Space.
+    fireEvent.click(button);
+    const selectedId = Object.keys(h.state.selectedElementIds)[0];
+    Keyboard.keyPress(KEYS.ENTER);
+    expect(h.state.editingTextElement?.containerId).toBe(selectedId);
+    expect(screen.queryByRole("button", { name: labels[0] })).toBeNull();
+  });
+
+  it("hides controls for invalid selections and editing modes", () => {
+    const node = API.createElement({ type: "rectangle" });
+    const other = API.createElement({ type: "diamond" });
+    API.setElements([node, other]);
+    API.setSelectedElements([node, other]);
+    expect(screen.queryByRole("button", { name: labels[0] })).toBeNull();
+    API.setSelectedElements([node]);
+    expect(screen.getByRole("button", { name: labels[0] })).not.toBeNull();
+    API.setAppState({ viewModeEnabled: true });
+    expect(screen.queryByRole("button", { name: labels[0] })).toBeNull();
+    API.setAppState({ viewModeEnabled: false });
+    API.updateElement(node, { locked: true });
+    expect(screen.queryByRole("button", { name: labels[0] })).toBeNull();
+    API.setSelectedElements([]);
+    expect(screen.queryByRole("button", { name: labels[0] })).toBeNull();
+    const ellipse = API.createElement({ type: "ellipse" });
+    API.setElements([ellipse]);
+    API.setSelectedElements([ellipse]);
+    expect(screen.queryByRole("button", { name: labels[0] })).toBeNull();
+  });
+});
 
 beforeEach(async () => {
   localStorage.clear();

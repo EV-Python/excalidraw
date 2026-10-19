@@ -50,6 +50,38 @@ export class AppFlowchart {
     this.navigator.clear();
   };
 
+  /** Commit a single pointer/keyboard UI creation using the keyboard engine. */
+  createNode = (direction: LinkDirection) => {
+    const { app, creator } = this;
+    const selected = getSelectedElements(
+      app.scene.getNonDeletedElementsMap(),
+      app.state,
+    );
+    const node = selected[0];
+    if (
+      selected.length !== 1 ||
+      !node ||
+      node.locked ||
+      (node.type !== "rectangle" && node.type !== "diamond") ||
+      app.state.viewModeEnabled ||
+      app.state.activeTool.type !== "selection"
+    ) {
+      return;
+    }
+
+    this.clear();
+    creator.createNodes(node, app.state, direction, app.scene);
+    const nodes = creator.pendingNodes ?? [];
+    this.clear();
+    if (nodes.length) {
+      app.insertNewElements(nodes);
+      this.selectAndReveal(nodes[0]);
+      this.captureUpdate();
+    }
+    // Enter can immediately use the existing text-editing behavior.
+    app.focusContainer();
+  };
+
   handleKeyEvent = (event: React.KeyboardEvent | KeyboardEvent): boolean => {
     const operation = this.resolveKeyboardEventToOperation(event);
 
