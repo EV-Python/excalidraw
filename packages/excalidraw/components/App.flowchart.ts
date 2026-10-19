@@ -17,7 +17,34 @@ import type {
 
 import type React from "react";
 import type App from "./App";
-import type { PendingExcalidrawElements } from "../types";
+import type { AppState, PendingExcalidrawElements } from "../types";
+
+/** Keep the contextual control out of selection, drawing and editing gestures. */
+export const getFlowchartToolbarNode = (
+  elements: readonly NonDeletedExcalidrawElement[],
+  state: AppState,
+) => {
+  const node = elements[0];
+  return elements.length === 1 &&
+    node &&
+    (node.type === "rectangle" || node.type === "diamond") &&
+    !node.locked &&
+    state.activeTool.type === "selection" &&
+    !state.viewModeEnabled &&
+    !state.editingTextElement &&
+    !state.selectedLinearElement &&
+    !state.selectedElementsAreBeingDragged &&
+    !state.selectionElement &&
+    !state.newElement &&
+    !state.resizingElement &&
+    !state.isRotating &&
+    !state.contextMenu &&
+    !state.openMenu &&
+    !state.openDialog &&
+    !state.isLoading
+    ? node
+    : null;
+};
 
 type FlowchartOperation =
   | { type: "none" }
@@ -48,6 +75,29 @@ export class AppFlowchart {
   clear = () => {
     this.creator.clear();
     this.navigator.clear();
+  };
+
+  /** Use the keyboard flowchart engine and history boundary for one UI step. */
+  addStep = (direction: LinkDirection) => {
+    const node = getFlowchartToolbarNode(
+      this.app.scene.getSelectedElements(this.app.state),
+      this.app.state,
+    );
+    if (!node || this.isCreatingChart) {
+      return;
+    }
+
+    this.clear();
+    this.creator.createNodes(node, this.app.state, direction, this.app.scene);
+    const nodes = this.creator.pendingNodes ?? [];
+    this.creator.clear();
+    if (nodes.length) {
+      this.app.insertNewElements(nodes);
+      this.selectAndReveal(nodes[0]);
+      this.captureUpdate();
+    }
+    // Enter uses the existing bound-text editor on the newly selected node.
+    this.app.focusContainer();
   };
 
   handleKeyEvent = (event: React.KeyboardEvent | KeyboardEvent): boolean => {
