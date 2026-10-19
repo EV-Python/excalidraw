@@ -13,6 +13,8 @@ import {
 import type {
   ExcalidrawElement,
   NonDeletedExcalidrawElement,
+  ExcalidrawFlowchartNodeElement,
+  NonDeleted,
 } from "@excalidraw/element/types";
 
 import type React from "react";
@@ -33,6 +35,7 @@ type FlowchartOperation =
 export class AppFlowchart {
   private creator = new FlowChartCreator();
   private navigator = new FlowChartNavigator();
+  private dragSource: NonDeleted<ExcalidrawFlowchartNodeElement> | null = null;
 
   constructor(private app: App) {}
 
@@ -46,11 +49,68 @@ export class AppFlowchart {
 
   /** ends any in-progress flowchart creation/navigation session */
   clear = () => {
+    this.dragSource = null;
     this.creator.clear();
     this.navigator.clear();
   };
 
+  previewDrag = (
+    source: NonDeleted<ExcalidrawFlowchartNodeElement>,
+    direction: LinkDirection,
+    position?: { x: number; y: number },
+  ) => {
+    this.dragSource = source;
+    this.creator.createNodeAt(
+      source,
+      this.app.state,
+      direction,
+      this.app.scene,
+      position,
+    );
+    this.app.triggerRender(true);
+  };
+
+  cancelDrag = () => {
+    if (this.dragSource) {
+      this.clear();
+      this.app.triggerRender(true);
+    }
+  };
+
+  commitDrag = () => {
+    const source = this.dragSource;
+    const nodes = this.creator.pendingNodes;
+    if (
+      !source ||
+      !nodes ||
+      !this.app.scene.getNonDeletedElementsMap().has(source.id)
+    ) {
+      this.cancelDrag();
+      return;
+    }
+    this.clear();
+    this.app.insertNewElements(nodes);
+    const arrow = nodes.find((node) => node.type === "arrow");
+    if (arrow) {
+      this.app.scene.mutateElement(source, {
+        boundElements: [
+          ...(source.boundElements ?? []),
+          { id: arrow.id, type: "arrow" },
+        ],
+      });
+    }
+    this.selectAndReveal(nodes[0]);
+    this.captureUpdate();
+  };
+
   handleKeyEvent = (event: React.KeyboardEvent | KeyboardEvent): boolean => {
+    // A modifier release must never commit a pointer preview.
+    if (this.dragSource) {
+      if (event.key === KEYS.ESCAPE) {
+        this.cancelDrag();
+      }
+      return true;
+    }
     const operation = this.resolveKeyboardEventToOperation(event);
 
     switch (operation.type) {

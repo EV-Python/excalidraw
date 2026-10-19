@@ -276,6 +276,7 @@ export const addNewNodes = (
   scene: Scene,
   numberOfNodes: number,
   stickyCrossStart: number | null = null,
+  targetPosition?: { x: number; y: number },
 ) => {
   const elementsMap = scene.getNonDeletedElementsMap();
   const obstacles = getConnectedFlowchartNodes(startNode, elementsMap).map(
@@ -291,7 +292,7 @@ export const addNewNodes = (
   );
 
   const nodes: NonDeletedExcalidrawElement[] = [];
-  for (const position of positions) {
+  for (const position of targetPosition ? [targetPosition] : positions) {
     const nextNode = cloneFlowchartNode(startNode, position.x, position.y);
     const bindingArrow = createBindingArrow(
       startNode,
@@ -687,6 +688,31 @@ export class FlowChartCreator {
   // already-visible pending nodes in place
   private clusterCrossStart: number | null = null;
   pendingNodes: PendingExcalidrawElements | null = null;
+
+  /** Pointer previews bind against a detached template, never the live source. */
+  createNodeAt(
+    startNode: NonDeleted<ExcalidrawFlowchartNodeElement>,
+    appState: AppState,
+    direction: LinkDirection,
+    scene: Scene,
+    position?: { x: number; y: number },
+  ) {
+    this.clear();
+    const template = {
+      ...startNode,
+      boundElements: startNode.boundElements?.slice() ?? null,
+    };
+    this.pendingNodes = addNewNodes(
+      template,
+      appState,
+      direction,
+      scene,
+      1,
+      null,
+      position,
+    ).nodes;
+    this.isCreatingChart = true;
+  }
 
   createNodes(
     startNode: NonDeleted<ExcalidrawFlowchartNodeElement>,
